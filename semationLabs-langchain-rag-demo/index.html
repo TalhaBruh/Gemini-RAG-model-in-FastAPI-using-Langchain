@@ -1,0 +1,320 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Semation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #01153d;
+      overflow: hidden;
+    }
+    .container {
+      display: flex;
+      justify-content: space-between;
+      max-width: 100vw;
+      border-radius: 2vw;
+      margin: 0 auto;
+      background: #01153d;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .section {
+      margin: 10px;
+      padding: 20px;
+      background: #fff;
+      border-radius: 2vw;
+    }
+    .section:first-child {
+      flex-basis: 20vw;
+    }
+    .section:last-child {
+      flex-basis: 80vw;
+    }
+    h1 {
+      text-align: center;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    input[type="file"],
+    input[type="text"],
+    textarea {
+      width: 90%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 20px;
+    }
+    button {
+      display: block;
+      width: auto;
+      padding: 8px 16px;
+      background: #001443;
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    .delete-btn {
+      background: #da3123;
+    }
+    .delete-btn:hover {
+      background: #b32119;
+    }
+    .response {
+      margin-top: 20px;
+      padding: 10px;
+      background: #e9ecef;
+      border-radius: 4px;
+    }
+    #loading-spinner,
+    #loading-spinner-chatbot {
+      display: none;
+      text-align: center;
+      margin-top: 20px;
+    }
+    .chat-container {
+      border: 1px solid #ccc;
+      border-radius: 1vw;
+      padding: 10px;
+      max-width: 100%;
+
+      margin: 20px auto;
+      height: 25vh;
+      overflow-y: auto;
+      background-color: #f5f5f5;
+    }
+    .chat-message {
+      display: flex;
+      margin: 10px 0;
+      max-width: 80%;
+      padding: 10px 15px;
+      border-radius: 20px;
+      position: relative;
+      opacity: 0;
+      animation: fadeIn 0.5s ease forwards;
+    }
+    .chat-message.user {
+      align-self: flex-end;
+      background-color: #c6d8f8;
+      color: #000;
+      justify-content: right;
+      border-bottom-right-radius: 0;
+      margin-left: auto;
+      animation-delay: 0.1s;
+    }
+    .chat-message.bot {
+      align-self: flex-start;
+      flex-direction: column;
+      background-color: #fff;
+      color: #000;
+      border-bottom-left-radius: 0;
+      margin-right: auto;
+      animation-delay: 0.2s;
+    }
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" style="text-align: center; display: flex; align-items: center; justify-items: center; margin-bottom: 2px;">
+    <img src="/static/semations.png" alt="Semation Labs" style="width: 200px; height: 50px; display: block; margin: 0 auto" />
+    <h1 style="font-size: 2em; margin-right: 30vw; color: white">Semation Labs Rag Demo</h1>
+  </div>
+  <div class="container">
+    <div class="section">
+      <h1>Upload PDF Documents</h1>
+      <form id="upload-form" enctype="multipart/form-data">
+        <div class="form-group">
+          <label for="files">Select PDF files:</label>
+          <input name="files" type="file" accept=".pdf" multiple id="files" />
+        </div>
+        <button type="submit">Upload</button>
+      </form>
+      <button onclick="updateDatabase()">Update DB</button>
+      <button class="delete-btn" onclick="clearData()">Delete</button>
+      <div id="loading-spinner">Loading...</div>
+      <div class="response" id="upload-response"></div>
+    </div>
+
+    <div class="section">
+      <h1>Chatbot</h1>
+      <div class="form-group">
+        <label for="query">Enter your query:</label>
+        <input type="text" id="query" name="query" />
+      </div>
+      <button onclick="askQuestion()">Ask</button>
+      <div id="loading-spinner-chatbot">Loading...</div>
+      <div class="chat-container" id="chat-container"></div>
+    </div>
+  </div>
+    <script>
+      document
+        .getElementById("upload-form")
+        .addEventListener("submit", async function (event) {
+          event.preventDefault();
+          const form = event.target;
+          const formData = new FormData(form);
+          const loadingSpinner = document.getElementById("loading-spinner");
+          const responseDiv = document.getElementById("upload-response");
+
+          loadingSpinner.style.display = "block";
+          responseDiv.innerHTML = "";
+
+          try {
+            const response = await fetch("/upload/", {
+              method: "POST",
+              body: formData,
+            });
+
+            if (response.ok) {
+              const result = await response.json();
+              responseDiv.innerHTML = `<p>Upload successful: ${result.filenames.join(
+                ", "
+              )}</p>`;
+            } else {
+              const errorData = await response.json();
+              responseDiv.innerHTML = `<p>Error: ${errorData.detail}</p>`;
+            }
+          } catch (error) {
+            responseDiv.innerHTML = `<p>An error occurred: ${error.message}</p>`;
+          } finally {
+            loadingSpinner.style.display = "none";
+          }
+        });
+
+      async function updateDatabase() {
+        const responseDiv = document.getElementById("upload-response");
+        const loadingSpinner = document.getElementById("loading-spinner");
+
+        loadingSpinner.style.display = "block";
+        responseDiv.innerHTML = "";
+
+        try {
+          const response = await fetch("/update-database/", {
+            method: "POST",
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            responseDiv.innerHTML = `<p>${data.detail}</p>`;
+          } else {
+            const errorData = await response.json();
+            responseDiv.innerHTML = `<p>Error: ${errorData.detail}</p>`;
+          }
+        } catch (error) {
+          responseDiv.innerHTML = `<p>An error occurred: ${error.message}</p>`;
+        } finally {
+          loadingSpinner.style.display = "none";
+        }
+      }
+
+      async function clearData() {
+        const responseDiv = document.getElementById("upload-response");
+        const loadingSpinner = document.getElementById("loading-spinner");
+
+        loadingSpinner.style.display = "block";
+        responseDiv.innerHTML = "";
+
+        try {
+          const response = await fetch("/clear-data/", {
+            method: "POST",
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            responseDiv.innerHTML = `<p>${data.detail}</p>`;
+          } else {
+            const errorData = await response.json();
+            responseDiv.innerHTML = `<p>Error: ${errorData.detail}</p>`;
+          }
+        } catch (error) {
+          responseDiv.innerHTML = `<p>An error occurred: ${error.message}</p>`;
+        } finally {
+          loadingSpinner.style.display = "none";
+        }
+      }
+
+      async function askQuestion() {
+        const query = document.getElementById("query").value;
+        const chatContainer = document.getElementById("chat-container");
+        const loadingSpinner = document.getElementById(
+          "loading-spinner-chatbot"
+        );
+
+        loadingSpinner.style.display = "block";
+
+        // Add user query to chat
+        const userMessage = document.createElement("div");
+        userMessage.className = "chat-message user";
+        userMessage.innerText = query;
+        chatContainer.appendChild(userMessage);
+
+        try {
+          const response = await fetch("/ask", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ query_text: query, session_id: "211" }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const formattedMessage = formatResponse(data.response);
+            chatContainer.appendChild(formattedMessage);
+          } else {
+            const errorMessage = document.createElement("div");
+            errorMessage.className = "chat-message bot";
+            errorMessage.innerText = `Error: ${response.statusText}`;
+            chatContainer.appendChild(errorMessage);
+          }
+        } catch (error) {
+          const errorMessage = document.createElement("div");
+          errorMessage.className = "chat-message bot";
+          errorMessage.innerText = `An error occurred: ${error.message}`;
+          chatContainer.appendChild(errorMessage);
+        } finally {
+          loadingSpinner.style.display = "none";
+        }
+      }
+
+      function formatResponse(text) {
+    const botMessage = document.createElement("div");
+    botMessage.className = "chat-message bot";
+
+    // Replace markdown formatting with HTML tags
+    const formattedText = text
+        .replace(/(?:^|\n)### (.*?)(?:\n|$)/g, "<h3>$1</h3>") // Headings level 3
+        .replace(/(?:^|\n)## (.*?)(?:\n|$)/g, "<h2>$1</h2>") // Headings level 2
+        .replace(/(?:^|\n)# (.*?)(?:\n|$)/g, "<h1>$1</h1>") // Headings level 1
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>") // Bold text
+        .replace(/\n/g, "<br/>"); // Replace new lines with line breaks
+
+    botMessage.innerHTML = formattedText;
+    return botMessage;
+}
+    </script>
+  </body>
+</html>
