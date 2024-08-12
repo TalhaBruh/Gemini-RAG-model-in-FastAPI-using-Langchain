@@ -1,4 +1,8 @@
-# Langchain RAG Tutorial
+# Langchain RAG Model using FastAPI & Python - LLM Gemini
+
+![Screenshot 2024-08-12 234636](https://github.com/user-attachments/assets/cf0f35da-ddc4-44b6-9227-6ebd00e74598)
+
+
 
 ## Install dependencies
 
